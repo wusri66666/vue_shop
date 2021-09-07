@@ -82,7 +82,11 @@
               @click="showEditRoleDialog(scope.row.id)"
               >编辑</el-button
             >
-            <el-button size="mini" type="danger" icon="el-icon-delete" @click="removeRoleById(scope.row.id)"
+            <el-button
+              size="mini"
+              type="danger"
+              icon="el-icon-delete"
+              @click="removeRoleById(scope.row.id)"
               >删除</el-button
             >
             <el-button
@@ -111,13 +115,12 @@
         node-key="id"
         :data="rightsList"
         :props="treeProps"
+        ref="treeRef"
         show-checkbox
       ></el-tree>
       <span slot="footer" class="dialog-footer">
         <el-button @click="setRightDialogVisible = false">取 消</el-button>
-        <el-button type="primary" @click="setRightDialogVisible = false"
-          >确 定</el-button
-        >
+        <el-button type="primary" @click="allotRight">确 定</el-button>
       </span>
     </el-dialog>
 
@@ -223,7 +226,9 @@ export default {
             trigger: 'blur'
           }
         ]
-      }
+      },
+      // 当前即将分配角色的id
+      roleId: ''
     }
   },
   created() {
@@ -266,6 +271,7 @@ export default {
     },
     // 展示分配权限的对话框
     async showSetRightDialog(role) {
+      this.roleId = role.id
       const { data: res } = await this.$http.get('rights/tree')
       if (res.meta.status != 200) {
         return this.$message.error('获取权限数据失败！')
@@ -320,11 +326,14 @@ export default {
       this.$refs.editRoleFormRef.validate(async valid => {
         if (!valid) return
         //发起修改角色的请求
-        const {data:res} = await this.$http.put('roles/' + this.editRoleForm.roleId, {
-          roleName: this.editRoleForm.roleName,
-          roleDesc: this.editRoleForm.roleDesc
-        })
-        if (res.meta.status != 200){
+        const { data: res } = await this.$http.put(
+          'roles/' + this.editRoleForm.roleId,
+          {
+            roleName: this.editRoleForm.roleName,
+            roleDesc: this.editRoleForm.roleDesc
+          }
+        )
+        if (res.meta.status != 200) {
           return this.$message.error('更新角色失败')
         }
         this.editRoleDialogVisible = false
@@ -333,7 +342,7 @@ export default {
       })
     },
     // 删除角色
-    async removeRoleById(id){
+    async removeRoleById(id) {
       // 弹框询问是否删除
       const confirmResult = await this.$confirm(
         '此操作将永久删除该角色, 是否继续?',
@@ -349,12 +358,27 @@ export default {
       if (confirmResult != 'confirm') {
         return this.$message.info('已取消删除')
       }
-      const {data:res} = await this.$http.delete('roles/'+id)
+      const { data: res } = await this.$http.delete('roles/' + id)
       if (res.meta.status != 200) {
         return this.$message.error('删除角色失败')
       }
       this.getRolesList()
       this.$message.success('删除角色成功')
+    },
+    //点击为角色分配权限
+    async allotRight() {
+      const keys = [
+        ...this.$refs.treeRef.getCheckedKeys(),
+        ...this.$refs.treeRef.getHalfCheckedKeys()
+      ]
+      const idstr = keys.join(',')
+      const {data:res} = await this.$http.post(`roles/${this.roleId}/rights`, { rids: idstr })
+      if (res.meta.status != 200){
+        return this.$message.error('分配权限失败')
+      }
+      this.$message.success('分配权限成功')
+      this.getRolesList()
+      this.setRightDialogVisible = false
     }
   }
 }
