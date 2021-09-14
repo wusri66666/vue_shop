@@ -54,11 +54,11 @@
             <el-form-item label="商品价格" prop="goods_price">
               <el-input v-model="addForm.goods_price" type="number"></el-input>
             </el-form-item>
-            <el-form-item label="商重量昂" prop="goods_weight">
+            <el-form-item label="商品重量" prop="goods_weight">
               <el-input v-model="addForm.goods_weight" type="number"></el-input>
             </el-form-item>
-            <el-form-item label="商品数量" prop="goods_num">
-              <el-input v-model="addForm.goods_num" type="number"></el-input>
+            <el-form-item label="商品数量" prop="goods_number">
+              <el-input v-model="addForm.goods_number" type="number"></el-input>
             </el-form-item>
             <el-form-item label="商品分类" prop="goods_cat">
               <el-cascader
@@ -109,19 +109,28 @@
               <el-button size="small" type="primary">点击上传</el-button>
             </el-upload>
           </el-tab-pane>
-          <el-tab-pane label="商品内容" name="4">商品内容</el-tab-pane>
+          <el-tab-pane label="商品内容" name="4">
+            <!-- 富文本编辑器组件 -->
+            <quill-editor v-model="addForm.goods_introduce"></quill-editor>
+            <!-- 添加商品的按钮 -->
+            <el-button type="primary" class="btnAdd" @click="add"
+              >添加商品</el-button
+            >
+          </el-tab-pane>
         </el-tabs>
       </el-form>
     </el-card>
 
     <!-- 图片预览 -->
     <el-dialog title="图片预览" :visible.sync="previewVisible" width="50%">
-      <img :src="previewPath" alt="" class="previewImg"/>
+      <img :src="previewPath" alt="" class="previewImg" />
     </el-dialog>
   </div>
 </template>
 
 <script>
+import _ from 'lodash'
+
 export default {
   data() {
     return {
@@ -132,11 +141,14 @@ export default {
         goods_name: '',
         goods_price: 0,
         goods_weight: 0,
-        goods_num: 0,
+        goods_number: 0,
         // 商品所属分类数组
-        goods_cat: '',
+        goods_cat: [],
         // 图片数组
-        pics: []
+        pics: [],
+        // 商品的详情描述
+        goods_introduce: '',
+        attrs: []
       },
       //   添加商品验证规则对象
       addFormRules: {
@@ -161,7 +173,7 @@ export default {
             trigger: 'blur'
           }
         ],
-        goods_num: [
+        goods_number: [
           {
             required: true,
             message: '请输入商品数量',
@@ -270,6 +282,42 @@ export default {
         pic: response.data.tem_path
       }
       this.addForm.pics.push(pic_info)
+    },
+    // 添加商品
+    add() {
+      this.$refs.addFormRef.validate(async valid => {
+        if (!valid) {
+          return this.$message.error('请填写必要的表单项')
+        }
+        //执行添加的业务逻辑
+        const form = _.cloneDeep(this.addForm)
+        form.goods_cat = form.goods_cat.join(',')
+        // 处理动态参数和静态属性
+        this.manyTableData.forEach(item => {
+          const newInfo = {
+            attr_id: item.attr_id,
+            attr_value: item.attr_vals.join(' ')
+          }
+          this.addForm.attrs.push(newInfo)
+        })
+        this.onlyTableData.forEach(item => {
+          const newInfo = {
+            attr_id: item.attr_id,
+            attr_value: item.attr_vals
+          }
+          this.addForm.attrs.push(newInfo)
+        })
+        form.attrs = this.addForm.attrs
+        // 发起请求添加商品
+        // 商品的名称必须是唯一的
+        const { data: res } = await this.$http.post('goods', form)
+        if (res.meta.status != 201){
+          return this.$message.error('添加商品失败')
+        }
+        this.$message.success('添加商品成功')
+        this.$router.push('/goods')
+
+      })
     }
   },
   computed: {
@@ -287,7 +335,10 @@ export default {
 .el-checkbox {
   margin: 0 5px 0 0;
 }
-.previewImg{
+.previewImg {
   width: 100%;
+}
+.btnAdd {
+  margin-top: 15px;
 }
 </style>
